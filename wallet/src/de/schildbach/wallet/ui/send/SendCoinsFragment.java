@@ -17,6 +17,8 @@
 
 package de.schildbach.wallet.ui.send;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.ComponentName;
@@ -24,6 +26,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.nfc.NdefMessage;
@@ -49,6 +52,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Filter;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -460,6 +464,10 @@ public final class SendCoinsFragment extends Fragment {
         config.setLastExchangeDirection(amountCalculatorLink.getExchangeDirection());
     }
 
+    private SharedPreferences spGen;
+
+    private boolean isSubmit;
+
     @Override
     public void onResume() {
         super.onResume();
@@ -469,6 +477,14 @@ public final class SendCoinsFragment extends Fragment {
 
         updateView();
         handler.post(dryrunRunnable);
+
+        spGen = this.getActivity().getSharedPreferences("SendCoinsFragment", MODE_PRIVATE);
+        EditText btcAmount = (EditText) getView().findViewById(R.id.send_coins_amount_btc);
+        EditText localAmount = (EditText) getView().findViewById(R.id.send_coins_amount_local);
+        receivingAddressView.setText(spGen.getString("editReceivingAddress", ""));
+        btcAmount.setText(spGen.getString("editBTCAmount", ""));
+        localAmount.setText(spGen.getString("editLocalAmount", ""));
+        isSubmit = false;
     }
 
     @Override
@@ -477,6 +493,20 @@ public final class SendCoinsFragment extends Fragment {
         amountCalculatorLink.setListener(null);
 
         super.onPause();
+
+        SharedPreferences.Editor spGenEditor = spGen.edit();
+        if (isSubmit) {
+            spGenEditor.putString("editReceivingAddress", "");
+            spGenEditor.putString("editBTCAmount", "");
+            spGenEditor.putString("editLocalAmount", "");
+        } else {
+            EditText btcAmount = (EditText) getView().findViewById(R.id.send_coins_amount_btc);
+            EditText localAmount = (EditText) getView().findViewById(R.id.send_coins_amount_local);
+            spGenEditor.putString("editReceivingAddress", receivingAddressView.getText().toString());
+            spGenEditor.putString("editBTCAmount", btcAmount.getText().toString());
+            spGenEditor.putString("editLocalAmount", localAmount.getText().toString());
+        }
+        spGenEditor.commit();
     }
 
     @Override
@@ -595,6 +625,7 @@ public final class SendCoinsFragment extends Fragment {
                         label);
                 receivingAddressView.setText(null);
                 log.info("Locked to valid address: {}", viewModel.validatedAddress);
+                isSubmit = true;
             }
         } catch (final AddressFormatException x) {
             // swallow
